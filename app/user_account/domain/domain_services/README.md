@@ -1,1 +1,0 @@
-This folder contains the domain_services module.
