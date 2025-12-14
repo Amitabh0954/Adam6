@@ -1,1 +1,0 @@
-This folder contains the use_cases module.
