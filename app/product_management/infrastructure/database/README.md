@@ -1,1 +1,1 @@
-This folder contains the database module.
+This directory is intentionally left empty.

@@ -1,1 +1,1 @@
-This folder contains the use_cases module.
+This directory is intentionally left empty.

@@ -1,1 +1,1 @@
-This folder contains the entities module.
+This directory is intentionally left empty.

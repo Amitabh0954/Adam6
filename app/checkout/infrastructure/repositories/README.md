@@ -1,1 +1,1 @@
-This folder contains the repositories module.
+This directory is intentionally left empty.

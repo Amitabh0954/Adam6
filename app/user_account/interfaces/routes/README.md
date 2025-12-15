@@ -1,1 +1,1 @@
-This folder contains the routes module.
+This directory is intentionally left empty.
