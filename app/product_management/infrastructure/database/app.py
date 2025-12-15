@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import or_
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///products.db'
@@ -10,27 +11,36 @@ class Product(db.Model):
     name = db.Column(db.String(80), unique=True, nullable=False)
     description = db.Column(db.String(200), nullable=False)
     price = db.Column(db.Float, nullable=False)
+    category = db.Column(db.String(50))
 
     def __repr__(self):
         return f'<Product {self.name}>'
 
-@app.route('/add_product', methods=['POST'])
-def add_product():
-    data = request.json
-    name = data.get('name')
-    description = data.get('description')
-    price = data.get('price')
+@app.route('/search_products', methods=['GET'])
+def search_products():
+    search_query = request.args.get('query', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
 
-    if not name or not description or price is None:
-        return jsonify({'error': 'Name, description, and price are required'}), 400
-    if type(price) is not float or price <= 0:
-        return jsonify({'error': 'Price must be a positive number'}), 400
+    search = "%{}%".format(search_query)
+    products = Product.query.filter(or_(Product.name.ilike(search), Product.description.ilike(search), Product.category.ilike(search))).paginate(page, per_page, False)
 
-    new_product = Product(name=name, description=description, price=price)
-    db.session.add(new_product)
-    db.session.commit()
+    result = []
+    for product in products.items:
+        result.append({
+            'id': product.id,
+            'name': product.name,
+            'description': product.description,
+            'price': product.price,
+            'category': product.category
+        })
 
-    return jsonify({'message': 'Product added successfully'}), 201
+    return jsonify({
+        'products': result,
+        'total': products.total,
+        'pages': products.pages,
+        'current_page': products.page
+    }), 200
 
 if __name__ == '__main__':
     db.create_all()
