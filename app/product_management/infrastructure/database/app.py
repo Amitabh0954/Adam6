@@ -1,46 +1,68 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import or_
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///products.db'
 db = SQLAlchemy(app)
+
+product_category = db.Table('product_category',
+    db.Column('product_id', db.Integer, db.ForeignKey('product.id'), primary_key=True),
+    db.Column('category_id', db.Integer, db.ForeignKey('category.id'), primary_key=True)
+)
 
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
     description = db.Column(db.String(200), nullable=False)
     price = db.Column(db.Float, nullable=False)
-    category = db.Column(db.String(50))
+    categories = db.relationship('Category', secondary=product_category, lazy='subquery', backref=db.backref('products', lazy=True))
 
     def __repr__(self):
         return f'<Product {self.name}>'
 
-@app.route('/search_products', methods=['GET'])
-def search_products():
-    search_query = request.args.get('query', '')
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
 
-    search = "%{}%".format(search_query)
-    products = Product.query.filter(or_(Product.name.ilike(search), Product.description.ilike(search), Product.category.ilike(search))).paginate(page, per_page, False)
+    def __repr__(self):
+        return f'<Category {self.name}>'
 
-    result = []
-    for product in products.items:
-        result.append({
-            'id': product.id,
-            'name': product.name,
-            'description': product.description,
-            'price': product.price,
-            'category': product.category
-        })
+@app.route('/add_product', methods=['POST'])
+def add_product():
+    data = request.json
+    name = data.get('name')
+    description = data.get('description')
+    price = data.get('price')
+    category_ids = data.get('categories', [])
 
-    return jsonify({
-        'products': result,
-        'total': products.total,
-        'pages': products.pages,
-        'current_page': products.page
-    }), 200
+    if not name or not description or price is None:
+        return jsonify({'error': 'Name, description, and price are required'}), 400
+    if type(price) != float or price <= 0:
+        return jsonify({'error': 'Price must be a positive number'}), 400
+
+    categories = Category.query.filter(Category.id.in_(category_ids)).all()
+    if not categories:
+        return jsonify({'error': 'At least one valid category is required'}), 400
+
+    new_product = Product(name=name, description=description, price=price, categories=categories)
+    db.session.add(new_product)
+    db.session.commit()
+
+    return jsonify({'message': 'Product added successfully'}), 201
+
+@app.route('/add_category', methods=['POST'])
+def add_category():
+    data = request.json
+    name = data.get('name')
+
+    if not name:
+        return jsonify({'error': 'Name is required'}), 400
+
+    new_category = Category(name=name)
+    db.session.add(new_category)
+    db.session.commit()
+
+    return jsonify({'message': 'Category added successfully'}), 201
 
 if __name__ == '__main__':
     db.create_all()
